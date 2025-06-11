@@ -10,6 +10,7 @@ use crate::{
         schema::{DbBlockInfo, DbCoin, DbTip},
         SqliteConn, SqliteDb,
     },
+    payjoin::db::{SessionId, SessionWrapper},
 };
 
 use std::{
@@ -22,6 +23,7 @@ use std::{
 
 use bip329::Labels;
 use miniscript::bitcoin::{self, bip32, psbt::Psbt, secp256k1, Address, Network, OutPoint, Txid};
+use payjoin::{receive::v2::ReceiverSessionEvent, send::v2::SenderSessionEvent, OhttpKeys};
 
 /// Information about the wallet.
 ///
@@ -194,6 +196,68 @@ pub trait DatabaseConnection {
 
     /// Dump all labels
     fn get_labels_bip329(&mut self, offset: u32, limit: u32) -> Labels;
+
+    /// Payjoin
+
+    /// Get the next Session Id
+    fn payjoin_get_ohttp_keys(&mut self, ohttp_relay: &str) -> Option<(u32, OhttpKeys)>;
+
+    /// Save OHttpKeys
+    fn payjoin_save_ohttp_keys(&mut self, ohttp_relay: &str, ohttp_keys: OhttpKeys);
+
+    /// Get the next Session Id
+    fn payjoin_next_id(&mut self, table: &str) -> u64;
+
+    /// Save Receiver Session
+    fn payjoin_save_receiver_session(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<ReceiverSessionEvent>,
+    );
+
+    /// Get a Receiver Session by Id
+    fn payjoin_get_receiver_session(
+        &mut self,
+        session_id: &SessionId,
+    ) -> Option<SessionWrapper<ReceiverSessionEvent>>;
+
+    /// Get all Receiver Sessions
+    fn payjoin_get_all_receiver_sessions(
+        &mut self,
+    ) -> Vec<(SessionId, SessionWrapper<ReceiverSessionEvent>)>;
+
+    /// Update the status of a payjoin receiver
+    fn update_payjoin_receiver_status(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<ReceiverSessionEvent>,
+    );
+
+    /// Create a payjoin sender
+    fn payjoin_save_sender_session(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<SenderSessionEvent>,
+    );
+
+    fn payjoin_get_sender_session(
+        &mut self,
+        session_id: &SessionId,
+    ) -> Option<SessionWrapper<SenderSessionEvent>>;
+
+    /// Get a all active payjoin senders
+    fn payjoin_get_all_sender_sessions(
+        &mut self,
+    ) -> Vec<(SessionId, SessionWrapper<SenderSessionEvent>)>;
+
+    /// Update the status of a payjoin sender
+    fn update_payjoin_sender_status(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<SenderSessionEvent>,
+    );
+
+    // -------
 }
 
 impl DatabaseConnection for SqliteConn {
@@ -415,6 +479,76 @@ impl DatabaseConnection for SqliteConn {
                 )
             })
             .collect()
+    }
+
+    fn payjoin_get_ohttp_keys(&mut self, ohttp_relay: &str) -> Option<(u32, OhttpKeys)> {
+        self.payjoin_get_ohttp_keys(ohttp_relay)
+    }
+
+    fn payjoin_save_ohttp_keys(&mut self, ohttp_relay: &str, ohttp_keys: OhttpKeys) {
+        self.payjoin_save_ohttp_keys(ohttp_relay, ohttp_keys)
+    }
+
+    fn payjoin_next_id(&mut self, table: &str) -> u64 {
+        self.payjoin_next_id(table)
+    }
+
+    fn payjoin_save_receiver_session(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<ReceiverSessionEvent>,
+    ) {
+        self.payjoin_save_receiver_session(session_id, session)
+    }
+
+    fn payjoin_get_receiver_session(
+        &mut self,
+        session_id: &SessionId,
+    ) -> Option<SessionWrapper<ReceiverSessionEvent>> {
+        self.payjoin_get_receiver_session(session_id)
+    }
+
+    fn payjoin_get_all_receiver_sessions(
+        &mut self,
+    ) -> Vec<(SessionId, SessionWrapper<ReceiverSessionEvent>)> {
+        self.payjoin_get_all_receiver_sessions()
+    }
+
+    fn update_payjoin_receiver_status(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<ReceiverSessionEvent>,
+    ) {
+        self.update_payjoin_receiver_status(session_id, session)
+    }
+
+    fn payjoin_save_sender_session(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<SenderSessionEvent>,
+    ) {
+        self.payjoin_save_sender_session(session_id, session)
+    }
+
+    fn payjoin_get_sender_session(
+        &mut self,
+        session_id: &SessionId,
+    ) -> Option<SessionWrapper<SenderSessionEvent>> {
+        self.payjoin_get_sender_session(session_id)
+    }
+
+    fn payjoin_get_all_sender_sessions(
+        &mut self,
+    ) -> Vec<(SessionId, SessionWrapper<SenderSessionEvent>)> {
+        self.payjoin_get_all_sender_sessions()
+    }
+
+    fn update_payjoin_sender_status(
+        &mut self,
+        session_id: &SessionId,
+        session: SessionWrapper<SenderSessionEvent>,
+    ) {
+        self.update_payjoin_sender_status(session_id, session)
     }
 }
 

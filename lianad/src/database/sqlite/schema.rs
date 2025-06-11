@@ -122,6 +122,28 @@ CREATE TABLE labels (
     item TEXT UNIQUE NOT NULL,
     value TEXT NOT NULL
 );
+
+/* Payjoin OHttpKeys */
+CREATE TABLE payjoin_ohttp_keys (
+    id INTEGER PRIMARY KEY NOT NULL,
+    relay_url TEXT UNIQUE NOT NULL,
+    timestamp INTEGER NOT NULL,
+    key BLOB NOT NULL
+);
+
+/* Payjoin senders */
+CREATE TABLE payjoin_senders (
+    id INTEGER PRIMARY KEY NOT NULL,
+    session_id INTEGER UNIQUE NOT NULL,
+    session BLOB NOT NULL
+);
+
+/* Payjoin receivers */
+CREATE TABLE payjoin_receivers (
+    id INTEGER PRIMARY KEY NOT NULL,
+    session_id INTEGER UNIQUE NOT NULL,
+    session BLOB NOT NULL
+);
 ";
 
 /// A row in the "tip" table.

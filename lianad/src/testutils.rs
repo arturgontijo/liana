@@ -5,9 +5,11 @@ use crate::{
         BlockInfo, Coin, CoinStatus, DatabaseConnection, DatabaseInterface, LabelItem, Wallet,
     },
     datadir::DataDirectory,
+    payjoin::db::{SessionId, SessionWrapper},
     DaemonControl, DaemonHandle,
 };
 use liana::descriptors;
+use payjoin::{receive::v2::ReceiverSessionEvent, send::v2::SenderSessionEvent, OhttpKeys};
 
 use std::convert::TryInto;
 use std::{
@@ -142,6 +144,10 @@ impl BitcoinInterface for DummyBitcoind {
 
     fn mempool_entry(&self, _: &bitcoin::Txid) -> Option<MempoolEntry> {
         None
+    }
+
+    fn test_mempool_accept(&self, _rawtxs: Vec<String>) -> Vec<bool> {
+        todo!()
     }
 }
 
@@ -548,6 +554,76 @@ impl DatabaseConnection for DummyDatabase {
     }
 
     fn get_labels_bip329(&mut self, _offset: u32, _limit: u32) -> bip329::Labels {
+        todo!()
+    }
+
+    fn payjoin_get_all_receiver_sessions(
+        &mut self,
+    ) -> Vec<(SessionId, SessionWrapper<ReceiverSessionEvent>)> {
+        todo!()
+    }
+
+    fn update_payjoin_receiver_status(
+        &mut self,
+        _session_id: &SessionId,
+        _session: SessionWrapper<ReceiverSessionEvent>,
+    ) {
+        todo!()
+    }
+
+    fn payjoin_save_sender_session(
+        &mut self,
+        _session_id: &SessionId,
+        _session: SessionWrapper<SenderSessionEvent>,
+    ) {
+        todo!()
+    }
+
+    fn update_payjoin_sender_status(
+        &mut self,
+        _session_id: &SessionId,
+        _session: SessionWrapper<SenderSessionEvent>,
+    ) {
+        todo!()
+    }
+
+    fn payjoin_next_id(&mut self, _table: &str) -> u64 {
+        todo!()
+    }
+
+    fn payjoin_save_receiver_session(
+        &mut self,
+        _session_id: &SessionId,
+        _session: SessionWrapper<ReceiverSessionEvent>,
+    ) {
+        todo!()
+    }
+
+    fn payjoin_get_receiver_session(
+        &mut self,
+        _session_id: &SessionId,
+    ) -> Option<SessionWrapper<ReceiverSessionEvent>> {
+        todo!()
+    }
+
+    fn payjoin_get_sender_session(
+        &mut self,
+        _session_id: &SessionId,
+    ) -> Option<SessionWrapper<SenderSessionEvent>> {
+        todo!()
+    }
+
+    fn payjoin_get_all_sender_sessions(
+        &mut self,
+    ) -> Vec<(SessionId, SessionWrapper<SenderSessionEvent>)> {
+        todo!()
+    }
+
+    fn payjoin_get_ohttp_keys(&mut self, _ohttp_relay: &str) -> Option<(u32, OhttpKeys)> {
+        todo!()
+    }
+
+    fn payjoin_save_ohttp_keys(&mut self, _ohttp_relay: &str, _ohttp_keys: payjoin::OhttpKeys) {
         todo!()
     }
 }

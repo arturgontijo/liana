@@ -37,10 +37,13 @@ use super::message::Message;
 fn address_card<'a>(
     row_index: usize,
     address: &'a bitcoin::Address,
+    maybe_payjoin_uri: Option<&String>,
     labels: &'a HashMap<String, String>,
     labels_editing: &'a HashMap<String, form::Value<String>>,
 ) -> Container<'a, Message> {
     let addr = address.to_string();
+    let payjoin_uri = maybe_payjoin_uri.unwrap_or(&String::new()).clone();
+    let has_payjoin_uri = !payjoin_uri.is_empty();
     card::simple(
         Column::new()
             .push(if let Some(label) = labels_editing.get(&addr) {
@@ -74,6 +77,36 @@ fn address_card<'a>(
                     )
                     .align_y(Alignment::Center),
             )
+            .push_maybe(has_payjoin_uri.then_some({
+                Row::new()
+                    .push(
+                        Container::new(
+                            scrollable(
+                                Column::new()
+                                    .push(Space::with_height(Length::Fixed(10.0)))
+                                    .push(
+                                        p2_regular(&payjoin_uri)
+                                            .small()
+                                            .style(theme::text::secondary),
+                                    )
+                                    // Space between the URI and the scrollbar
+                                    .push(Space::with_height(Length::Fixed(10.0))),
+                            )
+                            .direction(
+                                scrollable::Direction::Horizontal(
+                                    scrollable::Scrollbar::new().width(2).scroller_width(2),
+                                ),
+                            ),
+                        )
+                        .width(Length::Fill),
+                    )
+                    .push(
+                        Button::new(icon::clipboard_icon().style(theme::text::secondary))
+                            .on_press(Message::Clipboard(payjoin_uri.clone()))
+                            .style(theme::button::transparent_border),
+                    )
+                    .align_y(Alignment::Center)
+            }))
             .push(
                 Row::new()
                     .push(
@@ -93,6 +126,7 @@ fn address_card<'a>(
 #[allow(clippy::too_many_arguments)]
 pub fn receive<'a>(
     addresses: &'a [bitcoin::Address],
+    payjoin_uris: &'a HashMap<String, String>,
     labels: &'a HashMap<String, String>,
     prev_addresses: &'a [bitcoin::Address],
     prev_labels: &'a HashMap<String, String>,
@@ -110,6 +144,11 @@ pub fn receive<'a>(
             Row::new()
                 .align_y(Alignment::Center)
                 .push(Container::new(h3("Receive")).width(Length::Fill))
+                .push(
+                    button::secondary(Some(icon::plus_icon()), "Payjoin")
+                        .on_press(Message::PayjoinInitiate),
+                )
+                .spacing(10)
                 .push({
                     let (icon, label) = (Some(icon::plus_icon()), "Generate address");
                     if addresses.is_empty() {
@@ -128,8 +167,16 @@ pub fn receive<'a>(
                     // iterate starting from most recently generated
                     Column::new().spacing(10).width(Length::Fill),
                     |col, (i, address)| {
+                        let addr = address.to_string();
+                        let maybe_payjoin_uri = payjoin_uris.get(&addr);
                         addresses_count += 1;
-                        col.push(address_card(i, address, labels, labels_editing))
+                        col.push(address_card(
+                            i,
+                            address,
+                            maybe_payjoin_uri,
+                            labels,
+                            labels_editing,
+                        ))
                     },
                 )),
         )
@@ -162,13 +209,14 @@ pub fn receive<'a>(
                 // prev addresses are already ordered in descending order
                 Column::new().spacing(10).width(Length::Fill),
                 |col, (i, address)| {
+                    let addr = address.to_string();
+                    let maybe_payjoin_uri = payjoin_uris.get(&addr);
                     col.push(if !selected.contains(address) {
                         Button::new(
                             Row::new()
                                 .spacing(10)
                                 .push(
                                     {
-                                        let addr = address.to_string();
                                         let addr_len = addr.chars().count();
                                         Container::new(
                                             p2_regular(if addr_len > 2 * NUM_ADDR_CHARS {
@@ -229,6 +277,7 @@ pub fn receive<'a>(
                         Button::new(address_card(
                             addresses_count + i,
                             address,
+                            maybe_payjoin_uri,
                             prev_labels,
                             labels_editing,
                         ))

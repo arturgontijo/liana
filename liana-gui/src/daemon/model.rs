@@ -15,6 +15,7 @@ pub use lianad::commands::{
     ListCoinsResult, ListRevealedAddressesEntry, ListRevealedAddressesResult, ListSpendEntry,
     ListSpendResult, ListTransactionsResult, TransactionInfo,
 };
+use lianad::payjoin::types::{PayjoinInfo, PayjoinStatus};
 
 pub type Coin = ListCoinsEntry;
 
@@ -53,6 +54,7 @@ pub struct SpendTx {
     pub sigs: PartialSpendInfo,
     pub updated_at: Option<u32>,
     pub kind: TransactionKind,
+    pub payjoin_info: Option<PayjoinInfo>,
 }
 
 #[derive(PartialOrd, Ord, Debug, Clone, PartialEq, Eq)]
@@ -61,6 +63,8 @@ pub enum SpendStatus {
     Broadcast,
     Spent,
     Deprecated,
+    PayjoinInitiated,
+    PayjoinProposalReady,
 }
 
 impl SpendTx {
@@ -71,6 +75,7 @@ impl SpendTx {
         desc: &LianaDescriptor,
         secp: &secp256k1::Secp256k1<impl secp256k1::Verification>,
         network: Network,
+        payjoin_info: Option<PayjoinInfo>,
     ) -> Self {
         // Use primary path if no inputs are using a relative locktime.
         let use_primary_path = !psbt
@@ -145,7 +150,7 @@ impl SpendTx {
         };
 
         // One input coin is missing, the psbt is deprecated for now.
-        if coins_map.len() != psbt.inputs.len() {
+        if coins_map.len() != psbt.inputs.len() && payjoin_info.is_none() {
             status = SpendStatus::Deprecated
         }
 
@@ -190,15 +195,32 @@ impl SpendTx {
             status,
             sigs,
             network,
+            payjoin_info,
         }
     }
 
     /// Returns the path ready if it exists.
     pub fn path_ready(&self) -> Option<&PathSpendInfo> {
         let path = self.sigs.primary_path();
+
+        // TODO(arturgontijo): We should count the sigs, just in case.
+        if let Some(payjoin_info) = &self.payjoin_info {
+            if let Some(PayjoinStatus::Completed) = payjoin_info.sender_status {
+                let has_sigs = self
+                    .psbt
+                    .inputs
+                    .iter()
+                    .any(|psbtin| !psbtin.partial_sigs.is_empty());
+                if has_sigs {
+                    return Some(path);
+                }
+            }
+        };
+
         if path.sigs_count >= path.threshold {
             return Some(path);
         }
+
         self.sigs
             .recovery_paths()
             .values()

@@ -39,6 +39,7 @@ pub enum Modal {
 #[derive(Debug, Default)]
 pub struct Addresses {
     list: Vec<Address>,
+    payjoin_uris: HashMap<String, String>,
     derivation_indexes: Vec<ChildNumber>,
     labels: HashMap<String, String>,
 }
@@ -121,6 +122,7 @@ impl State for ReceivePanel {
             self.warning.as_ref(),
             view::receive::receive(
                 &self.addresses.list,
+                &self.addresses.payjoin_uris,
                 &self.addresses.labels,
                 &self.prev_addresses.list,
                 &self.prev_addresses.labels,
@@ -175,10 +177,13 @@ impl State for ReceivePanel {
             }
             Message::ReceiveAddress(res) => {
                 match res {
-                    Ok((address, derivation_index)) => {
+                    Ok((address, derivation_index, payjoin_uri)) => {
                         self.warning = None;
-                        self.addresses.list.push(address);
+                        self.addresses.list.push(address.clone());
                         self.addresses.derivation_indexes.push(derivation_index);
+                        self.addresses
+                            .payjoin_uris
+                            .insert(address.to_string(), payjoin_uri);
                     }
                     Err(e) => self.warning = Some(e),
                 }
@@ -209,7 +214,7 @@ impl State for ReceivePanel {
                         daemon
                             .get_new_address()
                             .await
-                            .map(|res| (res.address, res.derivation_index))
+                            .map(|res| (res.address, res.derivation_index, res.payjoin_uri))
                             .map_err(|e| e.into())
                     },
                     Message::ReceiveAddress,
@@ -293,6 +298,19 @@ impl State for ReceivePanel {
                     }
                 }
                 Task::none()
+            }
+            Message::View(view::Message::PayjoinInitiate) => {
+                let daemon = daemon.clone();
+                Task::perform(
+                    async move {
+                        daemon
+                            .receive_payjoin()
+                            .await
+                            .map(|res| (res.address, res.derivation_index, res.payjoin_uri))
+                            .map_err(|e| e.into())
+                    },
+                    Message::ReceiveAddress,
+                )
             }
             _ => {
                 if let Modal::VerifyAddress(ref mut m) = self.modal {
@@ -484,7 +502,8 @@ mod tests {
                 Some(json!({"method": "getnewaddress", "params": Option::<Request>::None})),
                 Ok(json!(GetAddressResult::new(
                     addr.clone(),
-                    ChildNumber::from_normal_idx(0).unwrap()
+                    ChildNumber::from_normal_idx(0).unwrap(),
+                    "".to_string(),
                 ))),
             ),
         ]);

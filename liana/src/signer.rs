@@ -366,25 +366,35 @@ impl HotSigner {
         let master_fingerprint = self.fingerprint(secp);
         let mut sighash_cache = sighash::SighashCache::new(&psbt.unsigned_tx);
 
+        // TODO(arturgontijo): my_prevouts (my psbt.inputs only)
         let prevouts: Vec<_> = psbt
             .inputs
             .iter()
             .filter_map(|psbt_in| psbt_in.witness_utxo.clone())
             .collect();
         if prevouts.len() != psbt.inputs.len() {
-            return Err(SignerError::IncompletePsbt);
+            // TODO(arturgontijo): Skip for now...
+            log::warn!(
+                "Not throwing SignerError::IncompletePsbt: prevouts.len({}) != psbt.inputs.len({})",
+                prevouts.len(),
+                psbt.inputs.len()
+            );
+            // return Err(SignerError::IncompletePsbt);
         }
 
         // Sign each input in the PSBT.
         for i in 0..psbt.inputs.len() {
             if psbt.inputs[i].witness_script.is_some() {
-                self.sign_p2wsh(
+                match self.sign_p2wsh(
                     secp,
                     &mut sighash_cache,
                     master_fingerprint,
                     &mut psbt.inputs[i],
                     i,
-                )?;
+                ) {
+                    Ok(_) => log::info!("Signed input at {}", i),
+                    Err(err) => log::warn!("Didnt sign input at {} | {}", i, err),
+                }
             } else {
                 self.sign_taproot(
                     secp,
