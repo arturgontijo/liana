@@ -1035,7 +1035,7 @@ impl DaemonControl {
         for index in 0..spend_psbt.inputs.len() {
             match spend_psbt.finalize_inp_mut(&self.secp, index) {
                 Ok(_) => log::info!("Finalizing input at: {}", index),
-                Err(_) => log::warn!("Not finalizing input at: {}", index),
+                Err(e) => log::warn!("Not finalizing input at: {} | {}", index, e),
             }
         }
 
