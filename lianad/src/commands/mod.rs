@@ -9,7 +9,7 @@ use crate::{
     database::{Coin, DatabaseConnection, DatabaseInterface},
     miniscript::bitcoin::absolute::LockTime,
     payjoin::{
-        db::{ReceiverPersister, SenderPersister, SessionId, SessionMetadata, SessionWrapper},
+        db::{ReceiverPersister, SenderPersister, SessionMetadata},
         helpers::fetch_ohttp_keys,
         types::{PayjoinInfo, PayjoinStatus},
     },
@@ -50,7 +50,7 @@ use miniscript::{
 };
 use payjoin::{
     bitcoin::{key::Secp256k1, FeeRate, Txid},
-    receive::v2::{Receiver, SessionEvent as ReceiverSessionEvent, UninitializedReceiver},
+    receive::v2::{Receiver, UninitializedReceiver},
     send::v2::SenderBuilder,
     Uri, UriExt,
 };
@@ -490,15 +490,6 @@ impl DaemonControl {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn payjoin_get_all_receiver_sessions(&self) -> Vec<(SessionId, SessionWrapper<ReceiverSessionEvent>)> {
-        let mut db_conn = self.db.connection();
-        db_conn.payjoin_get_all_receiver_sessions()
-    }
-
-    pub fn payjoin_get_receiver_session(&self, session_id: &SessionId) -> Option<ReceiverPersister> {
-        ReceiverPersister::from_id(Arc::new(self.db.clone()), session_id.clone()).ok()
     }
 
     /// Update derivation indexes
