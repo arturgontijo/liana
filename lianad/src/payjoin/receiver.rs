@@ -8,7 +8,7 @@ use liana::descriptors;
 
 use payjoin::{
     bitcoin::{
-        consensus::encode::serialize_hex, psbt::Input, secp256k1, FeeRate, OutPoint, Sequence,
+        consensus::encode::serialize_hex, psbt::Input, secp256k1, OutPoint, Sequence,
         TxIn,
     },
     persist::OptionalTransitionOutcome,
@@ -187,7 +187,7 @@ fn contribute_inputs(
 
     let selected_input = proposal.try_preserving_privacy(candidate_inputs).unwrap();
 
-    proposal
+    let proposal = proposal
         .contribute_inputs(vec![selected_input])?
         .commit_inputs()
         .save(persister)?;
@@ -196,9 +196,8 @@ fn contribute_inputs(
         .map_err(|e| format!("Failed to replay receiver event log: {:?}", e))
         .unwrap();
 
-    let psbt = history.psbt_with_contributed_inputs().unwrap();
+    let psbt = proposal.clone().ready_to_sign_psbt(None, None).unwrap();
     let bip21 = history.pj_uri().unwrap().to_string();
-
     db_conn.store_spend(&psbt);
     log::info!("[Payjoin] PSBT in the DB...");
 
@@ -219,32 +218,23 @@ fn finalize_proposal(
     db_conn: &mut Box<dyn DatabaseConnection>,
     secp: &secp256k1::Secp256k1<secp256k1::VerifyOnly>,
 ) -> Result<(), Box<dyn Error>> {
-    if let Some(proposed_psbt) = history.psbt_with_contributed_inputs() {
-        let txid = proposed_psbt.unsigned_tx.compute_txid();
-        if let Some(psbt) = db_conn.spend_tx(&txid) {
-            let mut is_signed = false;
-            for psbtin in &psbt.inputs {
-                if !psbtin.partial_sigs.is_empty() {
-                    log::debug!("[Payjoin] PSBT is signed!");
-                    is_signed = true;
-                    break;
-                }
+    let psbt_with_fee = proposal.clone().ready_to_sign_psbt(None, None).unwrap();
+    let txid = psbt_with_fee.unsigned_tx.compute_txid();
+    if let Some(psbt) = db_conn.spend_tx(&txid) {
+        let mut is_signed = false;
+        for psbtin in &psbt.inputs {
+            if !psbtin.partial_sigs.is_empty() {
+                log::debug!("[Payjoin] PSBT is signed!");
+                is_signed = true;
+                break;
             }
+        }
 
-            if is_signed {
-                let mut psbt = psbt.clone();
-                finalize_psbt(&mut psbt, secp);
-
-                let proposal = proposal
-                    .finalize_proposal(
-                        |_| Ok(psbt.clone()),
-                        None,
-                        Some(FeeRate::from_sat_per_vb(150).unwrap()),
-                    )
-                    .save(persister)?;
-
-                send_payjoin_proposal(proposal, persister, history)?;
-            }
+        if is_signed {
+            let mut psbt = psbt.clone();
+            finalize_psbt(&mut psbt, secp);
+            let proposal= proposal.finalize_proposal_with_signed_psbt(psbt).save(persister)?;
+            send_payjoin_proposal(proposal, persister, history)?;
         }
     }
     Ok(())
